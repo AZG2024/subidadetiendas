@@ -590,8 +590,8 @@
     const PROMPT_METADATA = `Asume que eres un experto en el emporio comercial de Gamarra en Lima, Perú, con conocimiento profundo de tipos de tiendas, categorías textiles, nomenclatura local (ej: gamarra, galerías, rubros como jeanería, polos, ropa interior, avíos, etc.), y analiza la imagen identificando con precisión el tipo de negocio según productos visibles, distribución, señalización y contexto comercial típico de Gamarra.
 Prioriza clasificaciones usadas en Gamarra (no genéricas globales) y evita ambigüedades: si hay duda, clasifica por el producto predominante y más visible.
 
-Estas 3 imágenes son de UNA MISMA tienda comercial tomada desde distintos ángulos.
-Analiza las 3 fotos en conjunto como si fuera una sola tienda y genera UN SOLO JSON con:
+Estas imágenes son de UNA MISMA tienda comercial tomada desde distintos ángulos.
+Analiza las fotos en conjunto como si fuera una sola tienda y genera UN SOLO JSON con:
 - titulo: nombre descriptivo de la tienda basado en lo que ves
 - descripcion: UNA sola oración corta y directa. Solo qué productos vende. Ejemplo: "Tienda de ropa masculina con jeans, polos y camisas casuales."
 - categoria: categoría principal del negocio
@@ -786,7 +786,7 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
     // Tags (per store)
     // ============================================================
     function toTitleCase(str) {
-      return str.replace(/\b\w/g, c => c.toUpperCase());
+      return str.replace(/(^|\s)\S/g, c => c.toUpperCase());
     }
 
     function addTag(storeIdx, text) {
