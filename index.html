@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Store Processor — AI</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e6;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .app { width: 100%; max-width: 1200px; }
+
+    h1 {
+      font-size: 1.8rem; font-weight: 700; text-align: center; margin-bottom: 4px;
+      background: linear-gradient(135deg, #7c5cfc, #c084fc);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle { text-align: center; color: #888; font-size: 0.9rem; margin-bottom: 32px; }
+
+    .section {
+      background: #13131a; border: 1px solid #1e1e2a;
+      border-radius: 12px; padding: 24px; margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 0.75rem; text-transform: uppercase;
+      letter-spacing: 1px; color: #666; margin-bottom: 12px;
+    }
+
+    /* Inputs */
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block; font-size: 0.75rem; color: #888;
+      margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .input {
+      width: 100%; background: #0a0a0f; border: 1px solid #2a2a3a;
+      border-radius: 8px; padding: 10px 14px; color: #e0e0e6;
+      font-size: 0.9rem; outline: none; transition: border-color 0.2s; font-family: inherit;
+    }
+    .input:focus { border-color: #7c5cfc; }
+    textarea.input { resize: vertical; min-height: 80px; }
+
+    .api-key-hint { font-size: 0.75rem; color: #555; margin-top: 8px; }
+    .api-key-hint a { color: #7c5cfc; text-decoration: none; }
+    .api-keys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Model selector */
+    .model-buttons { display: flex; gap: 8px; }
+    .model-btn {
+      flex: 1; padding: 12px; background: #0a0a0f; border: 1px solid #2a2a3a;
+      border-radius: 8px; color: #aaa; font-size: 0.85rem; cursor: pointer;
+      transition: all 0.2s; text-align: center;
+    }
+    .model-btn:hover { border-color: #7c5cfc; color: #e0e0e6; }
+    .model-btn.active {
+      border-color: #7c5cfc; background: #1a1a2e; color: #c084fc; font-weight: 600;
+    }
+    .model-btn small { display: block; font-size: 0.7rem; color: #555; margin-top: 4px; font-weight: 400; }
+    .model-btn.active small { color: #7c5cfc99; }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #2a2a3a; border-radius: 12px; padding: 30px 16px;
+      text-align: center; cursor: pointer; transition: all 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #7c5cfc; background: #7c5cfc08; }
+    .drop-zone-icon { font-size: 2rem; margin-bottom: 8px; opacity: 0.4; }
+    .drop-zone-text { color: #888; font-size: 0.85rem; }
+    .drop-zone-text span { color: #7c5cfc; text-decoration: underline; cursor: pointer; }
+    .drop-zone-formats { font-size: 0.65rem; color: #444; margin-top: 6px; }
+    .drop-zone input[type="file"] { display: none; }
+
+    /* Thumbnails */
+    .thumbs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .thumb-card {
+      position: relative; border-radius: 8px; overflow: hidden;
+      background: #0a0a0f; border: 1px solid #1e1e2a;
+    }
+    .thumb-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .thumb-card .thumb-remove {
+      position: absolute; top: 4px; right: 4px; background: #000a; border: none;
+      color: #f66; font-size: 1rem; width: 24px; height: 24px; border-radius: 50%;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .thumb-card .thumb-name {
+      font-size: 0.6rem; color: #666; padding: 3px 5px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .images-count { font-size: 0.75rem; color: #666; margin-top: 8px; text-align: center; }
+
+    /* Stores grid (2 columns) */
+    .stores-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    .store-block {
+      background: #13131a; border: 1px solid #1e1e2a;
+      border-radius: 12px; padding: 20px;
+    }
+
+    .store-header {
+      font-size: 0.85rem; font-weight: 600; color: #c084fc;
+      margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #7c5cfc, #9b6dff);
+      border: none; border-radius: 10px; color: #fff; font-size: 1rem;
+      font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 16px;
+    }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px #7c5cfc44; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Loading */
+    .loading-overlay { display: none; text-align: center; padding: 48px 24px; }
+    .loading-overlay.visible { display: block; }
+    .spinner {
+      width: 48px; height: 48px; border: 3px solid #1e1e2a; border-top-color: #7c5cfc;
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: #888; font-size: 0.9rem; }
+    .loading-sub { color: #444; font-size: 0.75rem; margin-top: 4px; }
+
+    /* Results */
+    .results { display: none; }
+    .results.visible { display: block; }
+
+    .results-images-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
+    }
+    .result-card { background: #0a0a0f; border-radius: 8px; overflow: hidden; }
+    .result-card img { width: 100%; display: block; }
+    .result-card-label {
+      text-align: center; padding: 4px; font-size: 0.65rem;
+      text-transform: uppercase; letter-spacing: 1px; color: #666;
+    }
+    .result-card-error {
+      padding: 10px; background: #2a1515; color: #d88; font-size: 0.7rem; text-align: center;
+    }
+
+    /* Crop button */
+    .result-card-actions { text-align: center; padding: 4px; }
+    .crop-btn {
+      background: #1a1a2e; border: 1px solid #2a2a3a; color: #c084fc;
+      padding: 3px 12px; border-radius: 6px; font-size: 0.7rem; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .crop-btn:hover { border-color: #7c5cfc; }
+
+    /* Crop modal */
+    .crop-modal {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+    }
+    .crop-modal.visible { display: flex; }
+    .crop-modal-content {
+      background: #12121a; border-radius: 12px; padding: 16px;
+      max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column;
+    }
+    .crop-modal-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    }
+    .crop-modal-header span {
+      flex: 1; font-size: 0.9rem; font-weight: 600; color: #c084fc;
+    }
+    .crop-container { flex: 1; overflow: hidden; max-height: 70vh; }
+    .crop-container img { max-width: 100%; display: block; }
+
+    /* Compare modal */
+    .compare-modal {
+      display: none; position: fixed; inset: 0; z-index: 9998;
+      background: rgba(0,0,0,0.9); align-items: center; justify-content: center;
+    }
+    .compare-modal.visible { display: flex; }
+    .compare-modal-content {
+      background: #12121a; border-radius: 12px; padding: 16px;
+      max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column;
+    }
+    .compare-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    }
+    .compare-header span {
+      flex: 1; font-size: 0.9rem; font-weight: 600; color: #c084fc;
+    }
+    .compare-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      overflow: auto; max-height: 80vh;
+    }
+    .compare-side { text-align: center; }
+    .compare-side img {
+      max-width: 100%; max-height: 75vh; object-fit: contain; border-radius: 8px;
+    }
+    .compare-label {
+      font-size: 0.7rem; color: #666; margin-top: 8px;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+
+    /* Metadata form */
+    .metadata-form { margin-top: 12px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .form-row.single { grid-template-columns: 1fr; }
+    .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+    /* Tags */
+    .tags-container {
+      display: flex; flex-wrap: wrap; gap: 6px; padding: 8px;
+      background: #0a0a0f; border: 1px solid #2a2a3a; border-radius: 8px; min-height: 42px;
+    }
+    .tag {
+      display: flex; align-items: center; gap: 4px; background: #1a1a2e;
+      border: 1px solid #7c5cfc44; border-radius: 6px; padding: 4px 8px;
+      font-size: 0.75rem; color: #c084fc;
+    }
+    .tag-remove {
+      background: none; border: none; color: #f6688a; cursor: pointer;
+      font-size: 0.85rem; padding: 0; line-height: 1;
+    }
+    .tag-input {
+      border: none; background: transparent; color: #e0e0e6; font-size: 0.75rem;
+      outline: none; min-width: 80px; flex: 1;
+    }
+
+    /* Action buttons */
+    .btn-approve {
+      width: 100%; padding: 12px; background: #1a3a1a; border: 1px solid #2a5a2a;
+      border-radius: 10px; color: #4ade80; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-approve:hover { background: #1a4a1a; border-color: #4ade80; }
+
+    .btn-secondary {
+      width: 100%; padding: 10px; background: transparent; border: 1px solid #2a2a3a;
+      border-radius: 10px; color: #888; font-size: 0.8rem; cursor: pointer;
+      transition: all 0.2s; margin-top: 6px;
+    }
+    .btn-secondary:hover { border-color: #7c5cfc; color: #e0e0e6; }
+
+    .btn-row { display: flex; gap: 8px; margin-top: 6px; }
+    .btn-row .btn-secondary { flex: 1; margin-top: 0; }
+
+    /* Error */
+    .error-box {
+      display: none; background: #2a1515; border: 1px solid #5a2020;
+      border-radius: 10px; padding: 16px 20px; margin-top: 16px;
+    }
+    .error-box.visible { display: block; }
+    .error-title { color: #f87171; font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
+    .error-message { color: #d88; font-size: 0.8rem; word-break: break-word; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1a3a1a; border: 1px solid #4ade80; color: #4ade80;
+      padding: 12px 24px; border-radius: 10px; font-size: 0.9rem;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 100;
+    }
+    .toast.visible { opacity: 1; }
+
+    .persistent-hint { font-size: 0.65rem; color: #7c5cfc88; margin-top: 2px; }
+
+    /* Next stores button (centered, full width) */
+    .next-stores-section { text-align: center; margin-top: 16px; }
+
+    @media (max-width: 800px) {
+      .stores-grid { grid-template-columns: 1fr; }
+      .model-buttons { flex-direction: column; }
+      .results-images-grid { grid-template-columns: 1fr; }
+      .form-row, .form-row.triple { grid-template-columns: 1fr; }
+      .api-keys-grid { grid-template-columns: 1fr; }
+      .btn-row { flex-direction: column; }
+      .btn-row .btn-secondary { margin-top: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>Store Processor</h1>
+    <p class="subtitle">Remove people & generate store metadata with AI</p>
+
+    <!-- API Keys -->
+    <div class="section">
+      <div class="section-title">API Keys</div>
+      <div class="api-keys-grid">
+        <div class="field">
+          <label>Google Gemini</label>
+          <input type="password" class="input" id="geminiKey" placeholder="Gemini API key" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>OpenAI</label>
+          <input type="password" class="input" id="openaiKey" placeholder="OpenAI API key" autocomplete="off">
+        </div>
+      </div>
+      <p class="api-key-hint">
+        Keys are used locally and never stored.
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Get Gemini key</a> ·
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Get OpenAI key</a>
+      </p>
+    </div>
+
+    <!-- Model -->
+    <div class="section">
+      <div class="section-title">Gemini Model (image processing)</div>
+      <div class="model-buttons">
+        <button class="model-btn active" data-model="gemini-3.1-flash-image-preview">
+          Gemini 3.1 Flash
+          <small>Fast, near-instant</small>
+        </button>
+        <button class="model-btn" data-model="gemini-3-pro-image-preview">
+          Prox2
+          <small>Best quality, slower</small>
+        </button>
+      </div>
+    </div>
+
+    <!-- Persistent fields -->
+    <div class="section" id="persistentSection">
+      <div class="section-title">Location & Config (persists between stores)</div>
+      <div class="form-row triple">
+        <div class="field">
+          <label>Nombre Galeria (para descarga)</label>
+          <input type="text" class="input" id="galeriaNameInput" placeholder="Ej: Paraiso, Guizado">
+          <div class="persistent-hint" id="counterHint">Next download: #1</div>
+        </div>
+        <div class="field">
+          <label>Ubicacion Fisica</label>
+          <input type="text" class="input" id="ubicacionInput" placeholder="Ej: Centro Comercial Gamarra">
+          <div class="persistent-hint">Same for all stores in this gallery</div>
+        </div>
+        <div class="field">
+          <label>Tipo de Uso</label>
+          <input type="text" class="input" id="tipoUsoInput" placeholder="Ej: Sugerencia">
+          <div class="persistent-hint">Persists between stores</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Prioridad de Visualizacion</label>
+          <input type="text" class="input" id="prioridadInput" placeholder="Ej: Media Alta">
+          <div class="persistent-hint">Persists between stores</div>
+        </div>
+        <div class="field">
+          <label>Piso</label>
+          <input type="text" class="input" id="pisoInput" placeholder="Ej: Piso 2">
+          <div class="persistent-hint">Persists between stores</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label>Pasillo</label>
+          <input type="text" class="input" id="pasilloInput" placeholder="Ej: Pasillo A">
+          <div class="persistent-hint">Persists between stores</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload: 2 stores side by side -->
+    <div id="uploadSection">
+      <div class="stores-grid">
+        <div class="store-block" id="storeUpload0">
+          <div class="store-header">Tienda 1</div>
+          <div class="form-row">
+            <div class="field">
+              <label>Stand</label>
+              <input type="text" class="input" id="standInput0" placeholder="Ej: A-123">
+            </div>
+            <div class="field">
+              <label>Rango de Precio</label>
+              <input type="text" class="input" id="precioInput0" placeholder="Ej: S/ 50 - S/ 100">
+            </div>
+          </div>
+          <div class="drop-zone" id="dropZone0">
+            <div class="drop-zone-icon">&#128247;</div>
+            <p class="drop-zone-text">Drag & drop 3 images or <span class="browse-link" data-store="0">browse</span></p>
+            <p class="drop-zone-formats">JPG, PNG, WebP — max 4MB — 3 images</p>
+            <input type="file" id="fileInput0" accept="image/jpeg,image/png,image/webp" multiple>
+          </div>
+          <div class="thumbs-grid" id="thumbsGrid0"></div>
+          <div class="images-count" id="imagesCount0"></div>
+        </div>
+
+        <div class="store-block" id="storeUpload1">
+          <div class="store-header">Tienda 2 (optional)</div>
+          <div class="form-row">
+            <div class="field">
+              <label>Stand</label>
+              <input type="text" class="input" id="standInput1" placeholder="Ej: B-456">
+            </div>
+            <div class="field">
+              <label>Rango de Precio</label>
+              <input type="text" class="input" id="precioInput1" placeholder="Ej: S/ 50 - S/ 100">
+            </div>
+          </div>
+          <div class="drop-zone" id="dropZone1">
+            <div class="drop-zone-icon">&#128247;</div>
+            <p class="drop-zone-text">Drag & drop 3 images or <span class="browse-link" data-store="1">browse</span></p>
+            <p class="drop-zone-formats">JPG, PNG, WebP — max 4MB — 3 images</p>
+            <input type="file" id="fileInput1" accept="image/jpeg,image/png,image/webp" multiple>
+          </div>
+          <div class="thumbs-grid" id="thumbsGrid1"></div>
+          <div class="images-count" id="imagesCount1"></div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btnProcess" disabled>Process Stores</button>
+
+      <div class="error-box" id="errorBox">
+        <div class="error-title" id="errorTitle">Error</div>
+        <div class="error-message" id="errorMessage"></div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Processing...</div>
+      <div class="loading-sub" id="loadingSub">Removing people from images</div>
+    </div>
+
+    <!-- Results: 2 stores side by side -->
+    <div class="results" id="results">
+      <div class="stores-grid">
+        <!-- Store 0 results -->
+        <div class="store-block" id="storeResults0" style="display:none">
+          <div class="store-header">Tienda 1 — Results</div>
+          <div class="results-images-grid" id="resultsImagesGrid0"></div>
+
+          <div class="metadata-form">
+            <div class="form-row single">
+              <div class="field">
+                <label>Titulo</label>
+                <input type="text" class="input" id="metaTitle0">
+              </div>
+            </div>
+            <div class="form-row single">
+              <div class="field">
+                <label>Descripcion</label>
+                <textarea class="input" id="metaDescription0"></textarea>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>Categoria</label>
+                <input type="text" class="input" id="metaCategory0">
+              </div>
+              <div class="field">
+                <label>Subcategoria</label>
+                <input type="text" class="input" id="metaSubcategory0">
+              </div>
+            </div>
+            <div class="form-row single">
+              <div class="field">
+                <label>Tags (press Enter to add)</label>
+                <div class="tags-container" id="tagsContainer0">
+                  <input type="text" class="tag-input" id="tagInput0" placeholder="Add a tag...">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-approve" id="btnApprove0">Approve & Copy JSON</button>
+          <div class="btn-row">
+            <button class="btn-secondary" id="btnDownload0">Download Images</button>
+          </div>
+        </div>
+
+        <!-- Store 1 results -->
+        <div class="store-block" id="storeResults1" style="display:none">
+          <div class="store-header">Tienda 2 — Results</div>
+          <div class="results-images-grid" id="resultsImagesGrid1"></div>
+
+          <div class="metadata-form">
+            <div class="form-row single">
+              <div class="field">
+                <label>Titulo</label>
+                <input type="text" class="input" id="metaTitle1">
+              </div>
+            </div>
+            <div class="form-row single">
+              <div class="field">
+                <label>Descripcion</label>
+                <textarea class="input" id="metaDescription1"></textarea>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>Categoria</label>
+                <input type="text" class="input" id="metaCategory1">
+              </div>
+              <div class="field">
+                <label>Subcategoria</label>
+                <input type="text" class="input" id="metaSubcategory1">
+              </div>
+            </div>
+            <div class="form-row single">
+              <div class="field">
+                <label>Tags (press Enter to add)</label>
+                <div class="tags-container" id="tagsContainer1">
+                  <input type="text" class="tag-input" id="tagInput1" placeholder="Add a tag...">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-approve" id="btnApprove1">Approve & Copy JSON</button>
+          <div class="btn-row">
+            <button class="btn-secondary" id="btnDownload1">Download Images</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="next-stores-section">
+        <button class="btn-secondary" id="btnNextStore" style="max-width:400px;margin:0 auto">Next Stores</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Crop Modal -->
+  <div id="cropModal" class="crop-modal">
+    <div class="crop-modal-content">
+      <div class="crop-modal-header">
+        <span>Crop Image</span>
+        <button id="cropCancel" style="background:#1a1a2e;border:1px solid #2a2a3a;color:#c084fc;padding:8px 16px;border-radius:8px;cursor:pointer;">Cancel</button>
+        <button id="cropConfirm" style="background:linear-gradient(135deg,#7c5cfc,#9b6dff);color:#fff;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;">Apply Crop</button>
+      </div>
+      <div class="crop-container">
+        <img id="cropImage">
+      </div>
+    </div>
+  </div>
+
+  <!-- Compare Modal -->
+  <div id="compareModal" class="compare-modal">
+    <div class="compare-modal-content">
+      <div class="compare-header">
+        <span>Original vs Processed</span>
+        <button id="compareClose" style="background:#1a1a2e;border:1px solid #2a2a3a;color:#c084fc;padding:8px 16px;border-radius:8px;cursor:pointer;">Close</button>
+      </div>
+      <div class="compare-grid">
+        <div class="compare-side">
+          <img id="compareOriginal">
+          <div class="compare-label">Original</div>
+        </div>
+        <div class="compare-side">
+          <img id="compareProcessed">
+          <div class="compare-label">Processed</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // State
+    // ============================================================
+    let selectedModel = 'gemini-3.1-flash-image-preview';
+    let downloadCounter = 1;
+    function newRandomId() { return Math.floor(1000 + Math.random() * 9000); }
+    let lastGaleriaName = '';
+
+    const NUM_STORES = 2;
+    const MAX_IMAGES = 3;
+    const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+    // Per-store state
+    const stores = [];
+    for (let i = 0; i < NUM_STORES; i++) {
+      stores.push({ images: [], processedImages: [], tags: [] });
+    }
+
+    const PROMPT_REMOVE = `Remove all people from this image. Fill the areas where people were with a natural continuation of the background, matching the lighting, texture, and perspective of the surrounding environment. The result should look like the original scene but without any human presence. Return only the edited image.`;
+
+    const PROMPT_METADATA = `Estas 3 imágenes son de UNA MISMA tienda comercial tomada desde distintos ángulos.
+Analiza las 3 fotos en conjunto como si fuera una sola tienda y genera UN SOLO JSON con:
+- titulo: nombre descriptivo de la tienda basado en lo que ves
+- descripcion: UNA sola oración corta y directa. Solo qué productos vende. Ejemplo: "Tienda de ropa masculina con jeans, polos y camisas casuales."
+- categoria: categoría principal del negocio
+- subcategoria: subcategoría más específica
+- tags: array de ~8 productos visibles. Reglas para tags:
+  * Cada tag en Title Case
+  * Máximo 5 tags específicos con género: "Jeans Para Mujer", "Casacas Para Hombre"
+  * Los demás tags deben ser generales sin género: "Polos", "Zapatillas", "Accesorios"
+  * Si es tienda unisex, separar por género solo en los tags específicos
+  * Usar "denim" en vez de "mezclilla"
+Responde SOLO con el JSON, sin markdown ni texto adicional.`;
+
+    // ============================================================
+    // DOM refs
+    // ============================================================
+    const $ = id => document.getElementById(id);
+    const $geminiKey = $('geminiKey');
+    const $openaiKey = $('openaiKey');
+    const $btnProcess = $('btnProcess');
+    const $uploadSection = $('uploadSection');
+    const $persistentSection = $('persistentSection');
+    const $loadingOverlay = $('loadingOverlay');
+    const $loadingText = $('loadingText');
+    const $loadingSub = $('loadingSub');
+    const $results = $('results');
+    const $btnNextStore = $('btnNextStore');
+    const $errorBox = $('errorBox');
+    const $errorTitle = $('errorTitle');
+    const $errorMessage = $('errorMessage');
+    const $toast = $('toast');
+    const $galeriaNameInput = $('galeriaNameInput');
+    const $counterHint = $('counterHint');
+    const $ubicacionInput = $('ubicacionInput');
+    const $tipoUsoInput = $('tipoUsoInput');
+    const $prioridadInput = $('prioridadInput');
+    const $pisoInput = $('pisoInput');
+    const $pasilloInput = $('pasilloInput');
+
+    // Per-store DOM refs
+    const storeDom = [];
+    for (let i = 0; i < NUM_STORES; i++) {
+      storeDom.push({
+        dropZone: $(`dropZone${i}`),
+        fileInput: $(`fileInput${i}`),
+        thumbsGrid: $(`thumbsGrid${i}`),
+        imagesCount: $(`imagesCount${i}`),
+        standInput: $(`standInput${i}`),
+        precioInput: $(`precioInput${i}`),
+        resultsBlock: $(`storeResults${i}`),
+        resultsImagesGrid: $(`resultsImagesGrid${i}`),
+        metaTitle: $(`metaTitle${i}`),
+        metaDescription: $(`metaDescription${i}`),
+        metaCategory: $(`metaCategory${i}`),
+        metaSubcategory: $(`metaSubcategory${i}`),
+        tagsContainer: $(`tagsContainer${i}`),
+        tagInput: $(`tagInput${i}`),
+        btnApprove: $(`btnApprove${i}`),
+        btnDownload: $(`btnDownload${i}`)
+      });
+    }
+
+    // ============================================================
+    // Gallery name change → reset counter
+    // ============================================================
+    $galeriaNameInput.addEventListener('change', () => {
+      const current = $galeriaNameInput.value.trim();
+      if (current !== lastGaleriaName) {
+        lastGaleriaName = current;
+        downloadCounter = 1;
+        updateCounterHint();
+      }
+    });
+
+    function updateCounterHint() {
+      $counterHint.textContent = `Next download: #${downloadCounter}`;
+    }
+
+    // ============================================================
+    // Model selection
+    // ============================================================
+    document.querySelectorAll('.model-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedModel = btn.dataset.model;
+      });
+    });
+
+    // ============================================================
+    // File upload (per store)
+    // ============================================================
+    for (let s = 0; s < NUM_STORES; s++) {
+      const dom = storeDom[s];
+
+      dom.dropZone.addEventListener('click', (e) => {
+        if (e.target.classList.contains('browse-link')) return;
+        dom.fileInput.click();
+      });
+
+      dom.dropZone.querySelector('.browse-link').addEventListener('click', () => dom.fileInput.click());
+
+      dom.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dom.dropZone.classList.add('dragover'); });
+      dom.dropZone.addEventListener('dragleave', () => dom.dropZone.classList.remove('dragover'));
+
+      dom.dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dom.dropZone.classList.remove('dragover');
+        handleFiles(s, Array.from(e.dataTransfer.files));
+      });
+
+      dom.fileInput.addEventListener('change', () => {
+        handleFiles(s, Array.from(dom.fileInput.files));
+        dom.fileInput.value = '';
+      });
+
+      // Tags
+      dom.tagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && dom.tagInput.value.trim()) {
+          e.preventDefault();
+          addTag(s, dom.tagInput.value.trim());
+          dom.tagInput.value = '';
+        }
+      });
+
+      // Approve
+      dom.btnApprove.addEventListener('click', () => approveStore(s));
+
+      // Download
+      dom.btnDownload.addEventListener('click', () => downloadStore(s));
+
+      // Crop & Compare via event delegation
+      dom.resultsImagesGrid.addEventListener('click', (e) => {
+        const cropBtn = e.target.closest('.crop-btn');
+        if (cropBtn) {
+          openCrop(s, parseInt(cropBtn.dataset.index));
+          return;
+        }
+        const compareImg = e.target.closest('.compare-trigger');
+        if (compareImg) {
+          openCompare(s, parseInt(compareImg.dataset.index));
+        }
+      });
+    }
+
+    function handleFiles(storeIdx, files) {
+      hideError();
+      const store = stores[storeIdx];
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      for (const file of files) {
+        if (store.images.length >= MAX_IMAGES) { showError('Limit reached', `Upload exactly ${MAX_IMAGES} images per store.`); break; }
+        if (!validTypes.includes(file.type)) { showError('Invalid format', `"${file.name}" — use JPG, PNG, or WebP.`); continue; }
+        if (file.size > 4 * 1024 * 1024) { showError('File too large', `"${file.name}" exceeds 4MB.`); continue; }
+        readFile(storeIdx, file);
+      }
+    }
+
+    function readFile(storeIdx, file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        stores[storeIdx].images.push({ base64: reader.result.split(',')[1], mimeType: file.type, fileName: file.name, dataUrl: reader.result });
+        renderThumbs(storeIdx);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeImage(storeIdx, index) { stores[storeIdx].images.splice(index, 1); renderThumbs(storeIdx); }
+
+    function renderThumbs(storeIdx) {
+      const store = stores[storeIdx];
+      const dom = storeDom[storeIdx];
+      dom.thumbsGrid.innerHTML = '';
+      store.images.forEach((img, i) => {
+        const card = document.createElement('div');
+        card.className = 'thumb-card';
+        card.innerHTML = `<img src="${img.dataUrl}" alt="${img.fileName}"><button class="thumb-remove" data-store="${storeIdx}" data-index="${i}">&times;</button><div class="thumb-name">${img.fileName}</div>`;
+        dom.thumbsGrid.appendChild(card);
+      });
+      dom.thumbsGrid.querySelectorAll('.thumb-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); removeImage(parseInt(btn.dataset.store), parseInt(btn.dataset.index)); });
+      });
+      dom.imagesCount.textContent = store.images.length > 0 ? `${store.images.length} of ${MAX_IMAGES} images` : '';
+      dom.dropZone.style.display = store.images.length >= MAX_IMAGES ? 'none' : '';
+      updateProcessButton();
+    }
+
+    function updateProcessButton() {
+      const hasAnyImages = stores.some(s => s.images.length > 0);
+      $btnProcess.disabled = !hasAnyImages;
+    }
+
+    // ============================================================
+    // Tags (per store)
+    // ============================================================
+    function toTitleCase(str) {
+      return str.replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function addTag(storeIdx, text) {
+      text = toTitleCase(text);
+      if (!stores[storeIdx].tags.includes(text)) {
+        stores[storeIdx].tags.push(text);
+        renderTags(storeIdx);
+      }
+    }
+
+    function removeTag(storeIdx, index) {
+      stores[storeIdx].tags.splice(index, 1);
+      renderTags(storeIdx);
+    }
+
+    function renderTags(storeIdx) {
+      const dom = storeDom[storeIdx];
+      const storeTags = stores[storeIdx].tags;
+      dom.tagsContainer.querySelectorAll('.tag').forEach(t => t.remove());
+      storeTags.forEach((tag, i) => {
+        const el = document.createElement('span');
+        el.className = 'tag';
+        el.innerHTML = `${tag}<button class="tag-remove" data-store="${storeIdx}" data-index="${i}">&times;</button>`;
+        dom.tagsContainer.insertBefore(el, dom.tagInput);
+      });
+      dom.tagsContainer.querySelectorAll('.tag-remove').forEach(btn => {
+        btn.addEventListener('click', () => removeTag(parseInt(btn.dataset.store), parseInt(btn.dataset.index)));
+      });
+    }
+
+    function setTags(storeIdx, arr) {
+      stores[storeIdx].tags = arr.map(t => toTitleCase(t));
+      renderTags(storeIdx);
+    }
+
+    // ============================================================
+    // Process (both stores)
+    // ============================================================
+    $btnProcess.addEventListener('click', async () => {
+      const geminiKey = $geminiKey.value.trim();
+      const openaiKey = $openaiKey.value.trim();
+
+      if (!geminiKey) { showError('Missing Key', 'Enter your Gemini API key.'); return; }
+      if (!openaiKey) { showError('Missing Key', 'Enter your OpenAI API key.'); return; }
+
+      const activeStores = [];
+      for (let s = 0; s < NUM_STORES; s++) {
+        if (stores[s].images.length > 0) activeStores.push(s);
+      }
+      if (activeStores.length === 0) { showError('No images', 'Upload store images.'); return; }
+
+      hideError();
+      setState('loading');
+
+      try {
+        // Count total images for progress
+        const totalImages = activeStores.reduce((sum, s) => sum + stores[s].images.length, 0);
+        let completedTotal = 0;
+
+        $loadingText.textContent = 'Removing people...';
+        $loadingSub.textContent = `Image 0 of ${totalImages}`;
+
+        // Process each store's images with Gemini
+        for (const s of activeStores) {
+          const store = stores[s];
+          store.processedImages = [];
+
+          for (const imgData of store.images) {
+            if (completedTotal > 0) await delay(1500);
+            try {
+              const res = await callGemini(geminiKey, selectedModel, imgData, PROMPT_REMOVE, ['TEXT', 'IMAGE']);
+              const result = extractImageFromResponse(res);
+              completedTotal++;
+              $loadingSub.textContent = `Image ${completedTotal} of ${totalImages}`;
+              if (!result) {
+                store.processedImages.push({ original: imgData, result: null, error: extractTextFromResponse(res) || 'No image returned.' });
+              } else {
+                store.processedImages.push({ original: imgData, result, error: null });
+              }
+            } catch (err) {
+              completedTotal++;
+              $loadingSub.textContent = `Image ${completedTotal} of ${totalImages}`;
+              store.processedImages.push({ original: imgData, result: null, error: err.message });
+            }
+          }
+        }
+
+        // Generate metadata for each store via OpenAI
+        $loadingText.textContent = 'Generating metadata...';
+
+        for (let idx = 0; idx < activeStores.length; idx++) {
+          const s = activeStores[idx];
+          const store = stores[s];
+          const successfulImages = store.processedImages.filter(p => p.result);
+
+          if (successfulImages.length === 0) continue;
+
+          $loadingSub.textContent = `GPT-5.4 analyzing store ${idx + 1} of ${activeStores.length}`;
+
+          const imagesToAnalyze = successfulImages.map(p => ({ base64: p.result.base64, mimeType: p.result.mimeType }));
+          const metadata = await callOpenAI(openaiKey, imagesToAnalyze, PROMPT_METADATA);
+
+          renderProcessedImages(s);
+          fillMetadata(s, metadata);
+
+          if (idx < activeStores.length - 1) await delay(1000);
+        }
+
+        // Show results for active stores, hide inactive
+        for (let s = 0; s < NUM_STORES; s++) {
+          const hasResults = stores[s].processedImages.length > 0 && stores[s].processedImages.some(p => p.result);
+          storeDom[s].resultsBlock.style.display = hasResults ? '' : 'none';
+        }
+
+        setState('results');
+      } catch (err) {
+        setState('upload');
+        showError('Processing failed', err.message);
+      }
+    });
+
+    // ============================================================
+    // Render processed images (per store)
+    // ============================================================
+    function renderProcessedImages(storeIdx) {
+      const dom = storeDom[storeIdx];
+      const store = stores[storeIdx];
+      dom.resultsImagesGrid.innerHTML = '';
+      store.processedImages.forEach((item, i) => {
+        const card = document.createElement('div');
+        card.className = 'result-card';
+        if (item.result) {
+          card.innerHTML = `<img src="data:${item.result.mimeType};base64,${item.result.base64}" alt="Processed ${i + 1}" class="compare-trigger" data-index="${i}" style="cursor:pointer" title="Click to compare"><div class="result-card-actions"><button class="crop-btn" data-index="${i}">Crop</button></div><div class="result-card-label">Image ${i + 1}</div>`;
+        } else {
+          card.innerHTML = `<div class="result-card-error">Image ${i + 1} failed: ${item.error}</div>`;
+        }
+        dom.resultsImagesGrid.appendChild(card);
+      });
+    }
+
+    function fillMetadata(storeIdx, data) {
+      const dom = storeDom[storeIdx];
+      dom.metaTitle.value = data.titulo || '';
+      dom.metaDescription.value = data.descripcion || '';
+      dom.metaCategory.value = data.categoria || '';
+      dom.metaSubcategory.value = data.subcategoria || '';
+      setTags(storeIdx, data.tags || []);
+    }
+
+    // ============================================================
+    // Crop functionality (shared modal)
+    // ============================================================
+    let cropper = null;
+    let cropStoreIdx = -1;
+    let cropIndex = -1;
+    const $cropModal = $('cropModal');
+    const $cropImage = $('cropImage');
+    const $cropConfirm = $('cropConfirm');
+    const $cropCancel = $('cropCancel');
+
+    function openCrop(storeIdx, imgIndex) {
+      cropStoreIdx = storeIdx;
+      cropIndex = imgIndex;
+      const item = stores[storeIdx].processedImages[imgIndex];
+      if (!item || !item.result) return;
+
+      $cropImage.src = `data:${item.result.mimeType};base64,${item.result.base64}`;
+      $cropModal.classList.add('visible');
+
+      $cropImage.onload = () => {
+        if (cropper) cropper.destroy();
+        cropper = new Cropper($cropImage, {
+          viewMode: 1, autoCropArea: 1, background: false, responsive: true
+        });
+      };
+    }
+
+    $cropConfirm.addEventListener('click', () => {
+      if (!cropper || cropStoreIdx < 0 || cropIndex < 0) return;
+      const item = stores[cropStoreIdx].processedImages[cropIndex];
+      const canvas = cropper.getCroppedCanvas();
+      const mimeType = item.result.mimeType;
+      const dataUrl = canvas.toDataURL(mimeType, 1.0);
+      item.result.base64 = dataUrl.split(',')[1];
+      cropper.destroy();
+      cropper = null;
+      cropStoreIdx = -1;
+      cropIndex = -1;
+      $cropModal.classList.remove('visible');
+      // Re-render the store that was cropped
+      for (let s = 0; s < NUM_STORES; s++) renderProcessedImages(s);
+    });
+
+    $cropCancel.addEventListener('click', () => {
+      if (cropper) { cropper.destroy(); cropper = null; }
+      cropStoreIdx = -1;
+      cropIndex = -1;
+      $cropModal.classList.remove('visible');
+    });
+
+    // ============================================================
+    // Compare functionality (shared modal)
+    // ============================================================
+    const $compareModal = $('compareModal');
+    const $compareOriginal = $('compareOriginal');
+    const $compareProcessed = $('compareProcessed');
+    const $compareClose = $('compareClose');
+
+    function openCompare(storeIdx, imgIndex) {
+      const item = stores[storeIdx].processedImages[imgIndex];
+      if (!item || !item.result || !item.original) return;
+
+      $compareOriginal.src = item.original.dataUrl;
+      $compareProcessed.src = `data:${item.result.mimeType};base64,${item.result.base64}`;
+      $compareModal.classList.add('visible');
+    }
+
+    $compareClose.addEventListener('click', () => {
+      $compareModal.classList.remove('visible');
+    });
+
+    // ============================================================
+    // Gemini API
+    // ============================================================
+    async function callGemini(apiKey, model, imgData, prompt, modalities) {
+      const url = `${GEMINI_URL}/${model}:generateContent?key=${apiKey}`;
+      const body = {
+        contents: [{ parts: [
+          { inline_data: { mime_type: imgData.mimeType, data: imgData.base64 } },
+          { text: prompt }
+        ]}],
+        generationConfig: { response_modalities: modalities, imageConfig: { imageSize: '2K' } }
+      };
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err.error?.message || `HTTP ${res.status}`;
+        if (res.status === 401 || res.status === 403) throw new Error(`Invalid Gemini key. ${msg}`);
+        if (res.status === 429) throw new Error(`Gemini rate limit. Wait and retry. ${msg}`);
+        throw new Error(msg);
+      }
+      return await res.json();
+    }
+
+    function extractImageFromResponse(data) {
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        const img = part.inlineData || part.inline_data;
+        if (img?.mimeType?.startsWith('image/') || img?.mime_type?.startsWith('image/')) {
+          return { base64: img.data, mimeType: img.mimeType || img.mime_type };
+        }
+      }
+      return null;
+    }
+
+    function extractTextFromResponse(data) {
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      return parts.filter(p => p.text).map(p => p.text).join('\n');
+    }
+
+    // ============================================================
+    // OpenAI API
+    // ============================================================
+    async function callOpenAI(apiKey, imagesArr, prompt) {
+      const content = [];
+      imagesArr.forEach(img => {
+        content.push({ type: 'image_url', image_url: { url: `data:${img.mimeType};base64,${img.base64}` } });
+      });
+      content.push({ type: 'text', text: prompt });
+
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: 'gpt-5.4', messages: [{ role: 'user', content }], response_format: { type: 'json_object' } })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err.error?.message || `HTTP ${res.status}`;
+        if (res.status === 401) throw new Error(`Invalid OpenAI key. ${msg}`);
+        if (res.status === 429) throw new Error(`OpenAI rate limit. ${msg}`);
+        throw new Error(`OpenAI: ${msg}`);
+      }
+      const data = await res.json();
+      const text = data.choices?.[0]?.message?.content || '{}';
+      try { return JSON.parse(text); }
+      catch { throw new Error('GPT did not return valid JSON: ' + text.substring(0, 200)); }
+    }
+
+    // ============================================================
+    // Approve & Copy JSON (per store)
+    // ============================================================
+    function approveStore(storeIdx) {
+      const dom = storeDom[storeIdx];
+      const store = stores[storeIdx];
+      const jsonData = {
+        titulo: dom.metaTitle.value,
+        descripcion: dom.metaDescription.value,
+        categoria: dom.metaCategory.value,
+        subcategoria: dom.metaSubcategory.value,
+        tags: [...store.tags],
+        tipoDeUso: $tipoUsoInput.value,
+        prioridad: $prioridadInput.value,
+        ubicacionFisica: $ubicacionInput.value,
+        piso: $pisoInput.value,
+        stand: dom.standInput.value,
+        pasillo: $pasilloInput.value,
+        rangoDePrecio: dom.precioInput.value,
+        imagenes: store.processedImages
+          .filter(p => p.result)
+          .map(p => ({ data: `data:${p.result.mimeType};base64,${p.result.base64}`, name: 'store-image.png', type: p.result.mimeType }))
+      };
+
+      navigator.clipboard.writeText(JSON.stringify(jsonData))
+        .then(() => showToast(`Tienda ${storeIdx + 1} JSON copied!`))
+        .catch(() => showToast('Failed to copy. Check clipboard permissions.'));
+    }
+
+    // ============================================================
+    // Download images (per store)
+    // ============================================================
+    function downloadStore(storeIdx) {
+      const dom = storeDom[storeIdx];
+      const store = stores[storeIdx];
+      const galName = ($galeriaNameInput.value.trim() || 'galeria').toLowerCase().replace(/\s+/g, '-');
+      const stand = (dom.standInput.value.trim() || 'unknown').toLowerCase();
+
+      store.processedImages.forEach((item) => {
+        if (!item.result) return;
+        const ext = item.result.mimeType.split('/')[1] || 'png';
+        const link = document.createElement('a');
+        link.href = `data:${item.result.mimeType};base64,${item.result.base64}`;
+        link.download = `${galName}-${stand}-${newRandomId()}-${downloadCounter}.${ext}`;
+        link.click();
+        downloadCounter++;
+      });
+
+      updateCounterHint();
+    }
+
+    // ============================================================
+    // Next stores
+    // ============================================================
+    $btnNextStore.addEventListener('click', () => {
+      for (let s = 0; s < NUM_STORES; s++) {
+        stores[s].images = [];
+        stores[s].processedImages = [];
+        stores[s].tags = [];
+        const dom = storeDom[s];
+        dom.metaTitle.value = '';
+        dom.metaDescription.value = '';
+        dom.metaCategory.value = '';
+        dom.metaSubcategory.value = '';
+        dom.standInput.value = '';
+        dom.precioInput.value = '';
+        renderTags(s);
+        renderThumbs(s);
+      }
+      // Ubicacion, Tipo de Uso, Prioridad, Piso, Pasillo persist
+      try { localStorage.removeItem('storeProcessorImages'); } catch {}
+      setState('upload');
+    });
+
+    // ============================================================
+    // UI helpers
+    // ============================================================
+    function setState(state) {
+      $uploadSection.style.display = state === 'upload' ? '' : 'none';
+      $persistentSection.style.display = state === 'loading' ? 'none' : '';
+      $loadingOverlay.classList.toggle('visible', state === 'loading');
+      $results.classList.toggle('visible', state === 'results');
+    }
+
+    function showError(title, message) { $errorTitle.textContent = title; $errorMessage.textContent = message; $errorBox.classList.add('visible'); }
+    function hideError() { $errorBox.classList.remove('visible'); }
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function showToast(msg) {
+      $toast.textContent = msg;
+      $toast.classList.add('visible');
+      setTimeout(() => $toast.classList.remove('visible'), 2500);
+    }
+  </script>
+</body>
+</html>

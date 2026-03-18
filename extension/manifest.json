@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Store Processor - Auto Fill",
+  "description": "Automatically fills the admin form with store data from Store Processor",
+  "version": "1.0",
+  "permissions": ["activeTab", "clipboardRead"],
+  "host_permissions": ["https://portalgamarrino.com/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{
+    "matches": ["https://portalgamarrino.com/*"],
+    "js": ["content.js"]
+  }]
+}
