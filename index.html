@@ -587,7 +587,10 @@
 
     const PROMPT_REMOVE = `Remove all people from this image. Fill the areas where people were with a natural continuation of the background, matching the lighting, texture, and perspective of the surrounding environment. The result should look like the original scene but without any human presence. Return only the edited image.`;
 
-    const PROMPT_METADATA = `Estas 3 imágenes son de UNA MISMA tienda comercial tomada desde distintos ángulos.
+    const PROMPT_METADATA = `Asume que eres un experto en el emporio comercial de Gamarra en Lima, Perú, con conocimiento profundo de tipos de tiendas, categorías textiles, nomenclatura local (ej: gamarra, galerías, rubros como jeanería, polos, ropa interior, avíos, etc.), y analiza la imagen identificando con precisión el tipo de negocio según productos visibles, distribución, señalización y contexto comercial típico de Gamarra.
+Prioriza clasificaciones usadas en Gamarra (no genéricas globales) y evita ambigüedades: si hay duda, clasifica por el producto predominante y más visible.
+
+Estas 3 imágenes son de UNA MISMA tienda comercial tomada desde distintos ángulos.
 Analiza las 3 fotos en conjunto como si fuera una sola tienda y genera UN SOLO JSON con:
 - titulo: nombre descriptivo de la tienda basado en lo que ves
 - descripcion: UNA sola oración corta y directa. Solo qué productos vende. Ejemplo: "Tienda de ropa masculina con jeans, polos y camisas casuales."
@@ -881,7 +884,7 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
 
           if (successfulImages.length === 0) continue;
 
-          $loadingSub.textContent = `GPT-5.3 analyzing store ${idx + 1} of ${activeStores.length}`;
+          $loadingSub.textContent = `GPT-5.4 analyzing store ${idx + 1} of ${activeStores.length}`;
 
           const imagesToAnalyze = successfulImages.map(p => ({ base64: p.result.base64, mimeType: p.result.mimeType }));
           const metadata = await callOpenAI(openaiKey, imagesToAnalyze, PROMPT_METADATA);
@@ -1057,7 +1060,7 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: 'gpt-5.3', messages: [{ role: 'user', content }], response_format: { type: 'json_object' } })
+        body: JSON.stringify({ model: 'gpt-5.4', messages: [{ role: 'user', content }], response_format: { type: 'json_object' } })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
