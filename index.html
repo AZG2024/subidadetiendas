@@ -913,9 +913,9 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
               completedTotal++;
               $loadingSub.textContent = `Image ${completedTotal} of ${totalImages}`;
               if (!result) {
-                store.processedImages.push({ original: imgData, result: null, error: 'No image returned.' });
+                store.processedImages.push({ original: imgData, result: null, error: 'No image returned.', provider: selectedProvider });
               } else {
-                store.processedImages.push({ original: imgData, result, error: null });
+                store.processedImages.push({ original: imgData, result, error: null, provider: selectedProvider });
               }
             } catch (err) {
               completedTotal++;
@@ -1230,17 +1230,23 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
 
       store.processedImages.forEach((item) => {
         if (!item.result) return;
-        // Compress to JPEG for smaller file size
-        const img = new Image();
-        img.src = `data:${item.result.mimeType};base64,${item.result.base64}`;
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || img.width;
-        canvas.height = img.naturalHeight || img.height;
-        canvas.getContext('2d').drawImage(img, 0, 0);
-        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.90);
         const link = document.createElement('a');
-        link.href = jpegDataUrl;
-        link.download = `${galName}-${stand}-${newRandomId()}-${downloadCounter}.jpg`;
+        if (item.provider === 'wavespeed') {
+          // Compress WaveSpeed images to JPEG
+          const img = new Image();
+          img.src = `data:${item.result.mimeType};base64,${item.result.base64}`;
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          link.href = canvas.toDataURL('image/jpeg', 0.90);
+          link.download = `${galName}-${stand}-${newRandomId()}-${downloadCounter}.jpg`;
+        } else {
+          // Gemini: original quality
+          const ext = item.result.mimeType.split('/')[1] || 'png';
+          link.href = `data:${item.result.mimeType};base64,${item.result.base64}`;
+          link.download = `${galName}-${stand}-${newRandomId()}-${downloadCounter}.${ext}`;
+        }
         link.click();
         downloadCounter++;
       });
