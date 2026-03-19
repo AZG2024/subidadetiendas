@@ -306,24 +306,35 @@
           <input type="password" class="input" id="openaiKey" placeholder="OpenAI API key" autocomplete="off">
         </div>
       </div>
+      <div class="api-keys-grid" style="margin-top:8px">
+        <div class="field">
+          <label>WaveSpeed (backup)</label>
+          <input type="password" class="input" id="wavespeedKey" placeholder="WaveSpeed API key" autocomplete="off">
+        </div>
+      </div>
       <p class="api-key-hint">
         Keys are used locally and never stored.
         <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Get Gemini key</a> ·
-        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Get OpenAI key</a>
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Get OpenAI key</a> ·
+        <a href="https://wavespeed.ai" target="_blank" rel="noopener">Get WaveSpeed key</a>
       </p>
     </div>
 
     <!-- Model -->
     <div class="section">
-      <div class="section-title">Gemini Model (image processing)</div>
+      <div class="section-title">Model (image processing)</div>
       <div class="model-buttons">
-        <button class="model-btn active" data-model="gemini-3.1-flash-image-preview">
+        <button class="model-btn active" data-model="gemini-3.1-flash-image-preview" data-provider="gemini">
           Gemini 3.1 Flash
           <small>Fast, near-instant</small>
         </button>
-        <button class="model-btn" data-model="gemini-3-pro-image-preview">
+        <button class="model-btn" data-model="gemini-3-pro-image-preview" data-provider="gemini">
           Prox2
           <small>Best quality, slower</small>
+        </button>
+        <button class="model-btn" data-model="wavespeed" data-provider="wavespeed">
+          WaveSpeed
+          <small>Backup when Gemini is down</small>
         </button>
       </div>
     </div>
@@ -571,6 +582,7 @@
     // State
     // ============================================================
     let selectedModel = 'gemini-3.1-flash-image-preview';
+    let selectedProvider = 'gemini';
     let downloadCounter = 1;
     function newRandomId() { return Math.floor(1000 + Math.random() * 9000); }
     let lastGaleriaName = '';
@@ -578,6 +590,7 @@
     const NUM_STORES = 2;
     const MAX_IMAGES = 3;
     const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+    const WAVESPEED_URL = 'https://api.wavespeed.ai/api/v3/google/nano-banana-pro/edit';
 
     // Per-store state
     const stores = [];
@@ -610,6 +623,20 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
     const $ = id => document.getElementById(id);
     const $geminiKey = $('geminiKey');
     const $openaiKey = $('openaiKey');
+    const $wavespeedKey = $('wavespeedKey');
+
+    // Auto-load saved API keys from localStorage
+    const keyFields = [
+      { el: $geminiKey, key: 'sp_geminiKey' },
+      { el: $openaiKey, key: 'sp_openaiKey' },
+      { el: $wavespeedKey, key: 'sp_wavespeedKey' }
+    ];
+    keyFields.forEach(({ el, key }) => {
+      const saved = localStorage.getItem(key);
+      if (saved) el.value = saved;
+      el.addEventListener('input', () => localStorage.setItem(key, el.value));
+    });
+
     const $btnProcess = $('btnProcess');
     const $uploadSection = $('uploadSection');
     const $persistentSection = $('persistentSection');
@@ -677,6 +704,7 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
         document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         selectedModel = btn.dataset.model;
+        selectedProvider = btn.dataset.provider || 'gemini';
       });
     });
 
@@ -828,8 +856,10 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
     $btnProcess.addEventListener('click', async () => {
       const geminiKey = $geminiKey.value.trim();
       const openaiKey = $openaiKey.value.trim();
+      const wavespeedKey = $wavespeedKey.value.trim();
 
-      if (!geminiKey) { showError('Missing Key', 'Enter your Gemini API key.'); return; }
+      if (selectedProvider === 'gemini' && !geminiKey) { showError('Missing Key', 'Enter your Gemini API key.'); return; }
+      if (selectedProvider === 'wavespeed' && !wavespeedKey) { showError('Missing Key', 'Enter your WaveSpeed API key.'); return; }
       if (!openaiKey) { showError('Missing Key', 'Enter your OpenAI API key.'); return; }
 
       const activeStores = [];
@@ -846,10 +876,10 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
         const totalImages = activeStores.reduce((sum, s) => sum + stores[s].images.length, 0);
         let completedTotal = 0;
 
-        $loadingText.textContent = 'Removing people...';
+        const providerLabel = selectedProvider === 'wavespeed' ? 'WaveSpeed' : 'Gemini';
+        $loadingText.textContent = `Removing people (${providerLabel})...`;
         $loadingSub.textContent = `Image 0 of ${totalImages}`;
 
-        // Process each store's images with Gemini
         for (const s of activeStores) {
           const store = stores[s];
           store.processedImages = [];
@@ -857,12 +887,31 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
           for (const imgData of store.images) {
             if (completedTotal > 0) await delay(1500);
             try {
-              const res = await callGemini(geminiKey, selectedModel, imgData, PROMPT_REMOVE, ['TEXT', 'IMAGE']);
-              const result = extractImageFromResponse(res);
+              let result = null;
+
+              if (selectedProvider === 'wavespeed') {
+                const wsRes = await callWaveSpeed(wavespeedKey, imgData, PROMPT_REMOVE);
+                result = extractImageFromWaveSpeed(wsRes);
+                if (result && result.url) {
+                  const fetched = await fetchImageAsBase64(result.url);
+                  result = fetched;
+                }
+              } else {
+                const res = await callGemini(geminiKey, selectedModel, imgData, PROMPT_REMOVE, ['TEXT', 'IMAGE']);
+                result = extractImageFromResponse(res);
+                if (!result) {
+                  const errText = extractTextFromResponse(res) || 'No image returned.';
+                  store.processedImages.push({ original: imgData, result: null, error: errText });
+                  completedTotal++;
+                  $loadingSub.textContent = `Image ${completedTotal} of ${totalImages}`;
+                  continue;
+                }
+              }
+
               completedTotal++;
               $loadingSub.textContent = `Image ${completedTotal} of ${totalImages}`;
               if (!result) {
-                store.processedImages.push({ original: imgData, result: null, error: extractTextFromResponse(res) || 'No image returned.' });
+                store.processedImages.push({ original: imgData, result: null, error: 'No image returned.' });
               } else {
                 store.processedImages.push({ original: imgData, result, error: null });
               }
@@ -1045,6 +1094,60 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
     function extractTextFromResponse(data) {
       const parts = data.candidates?.[0]?.content?.parts || [];
       return parts.filter(p => p.text).map(p => p.text).join('\n');
+    }
+
+    // ============================================================
+    // WaveSpeed API (backup)
+    // ============================================================
+    async function callWaveSpeed(wsKey, imgData, prompt) {
+      const dataUri = `data:${imgData.mimeType};base64,${imgData.base64}`;
+      const res = await fetch(WAVESPEED_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${wsKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          images: [dataUri],
+          prompt: prompt,
+          resolution: '2k',
+          output_format: 'png',
+          enable_sync_mode: true,
+          enable_base64_output: true
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `WaveSpeed HTTP ${res.status}`);
+      }
+      return await res.json();
+    }
+
+    function extractImageFromWaveSpeed(data) {
+      const outputs = data.data?.outputs || [];
+      if (outputs.length === 0) return null;
+      const output = outputs[0];
+      if (output.startsWith('data:')) {
+        const [header, b64] = output.split(',');
+        const mimeType = header.match(/data:(.*?);/)?.[1] || 'image/png';
+        return { base64: b64, mimeType };
+      }
+      return { url: output };
+    }
+
+    async function fetchImageAsBase64(url) {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          const base64 = dataUrl.split(',')[1];
+          const mimeType = blob.type || 'image/png';
+          resolve({ base64, mimeType });
+        };
+        reader.readAsDataURL(blob);
+      });
     }
 
     // ============================================================
