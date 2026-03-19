@@ -885,7 +885,8 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
           store.processedImages = [];
 
           for (const imgData of store.images) {
-            if (completedTotal > 0) await delay(1500);
+            const delayMs = selectedProvider === 'wavespeed' ? 5000 : 1500;
+            if (completedTotal > 0) await delay(delayMs);
             try {
               let result = null;
 
