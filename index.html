@@ -1230,10 +1230,17 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
 
       store.processedImages.forEach((item) => {
         if (!item.result) return;
-        const ext = item.result.mimeType.split('/')[1] || 'png';
+        // Compress to JPEG for smaller file size
+        const img = new Image();
+        img.src = `data:${item.result.mimeType};base64,${item.result.base64}`;
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || img.width;
+        canvas.height = img.naturalHeight || img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.90);
         const link = document.createElement('a');
-        link.href = `data:${item.result.mimeType};base64,${item.result.base64}`;
-        link.download = `${galName}-${stand}-${newRandomId()}-${downloadCounter}.${ext}`;
+        link.href = jpegDataUrl;
+        link.download = `${galName}-${stand}-${newRandomId()}-${downloadCounter}.jpg`;
         link.click();
         downloadCounter++;
       });
