@@ -298,8 +298,8 @@
       <div class="section-title">API Keys</div>
       <div class="api-keys-grid">
         <div class="field">
-          <label>Google Gemini</label>
-          <input type="password" class="input" id="geminiKey" placeholder="Gemini API key" autocomplete="off">
+          <label>Google Gemini (1 per line, rotates automatically)</label>
+          <textarea class="input" id="geminiKeys" placeholder="Gemini API key 1&#10;Gemini API key 2&#10;Gemini API key 3" rows="3" style="resize:vertical;font-size:0.75rem"></textarea>
         </div>
         <div class="field">
           <label>OpenAI</label>
@@ -621,13 +621,13 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
     // DOM refs
     // ============================================================
     const $ = id => document.getElementById(id);
-    const $geminiKey = $('geminiKey');
+    const $geminiKeys = $('geminiKeys');
     const $openaiKey = $('openaiKey');
     const $wavespeedKey = $('wavespeedKey');
 
     // Auto-load saved API keys from localStorage
     const keyFields = [
-      { el: $geminiKey, key: 'sp_geminiKey' },
+      { el: $geminiKeys, key: 'sp_geminiKeys' },
       { el: $openaiKey, key: 'sp_openaiKey' },
       { el: $wavespeedKey, key: 'sp_wavespeedKey' }
     ];
@@ -636,6 +636,19 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
       if (saved) el.value = saved;
       el.addEventListener('input', () => localStorage.setItem(key, el.value));
     });
+
+    // Gemini key rotation
+    let geminiKeyIndex = 0;
+    function getGeminiKeys() {
+      return $geminiKeys.value.split('\n').map(k => k.trim()).filter(k => k.length > 0);
+    }
+    function getNextGeminiKey() {
+      const keys = getGeminiKeys();
+      if (keys.length === 0) return '';
+      const key = keys[geminiKeyIndex % keys.length];
+      geminiKeyIndex++;
+      return key;
+    }
 
     const $btnProcess = $('btnProcess');
     const $uploadSection = $('uploadSection');
@@ -854,11 +867,11 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
     // Process (both stores)
     // ============================================================
     $btnProcess.addEventListener('click', async () => {
-      const geminiKey = $geminiKey.value.trim();
+      const geminiKeysArr = getGeminiKeys();
       const openaiKey = $openaiKey.value.trim();
       const wavespeedKey = $wavespeedKey.value.trim();
 
-      if (selectedProvider === 'gemini' && !geminiKey) { showError('Missing Key', 'Enter your Gemini API key.'); return; }
+      if (selectedProvider === 'gemini' && geminiKeysArr.length === 0) { showError('Missing Key', 'Enter at least one Gemini API key.'); return; }
       if (selectedProvider === 'wavespeed' && !wavespeedKey) { showError('Missing Key', 'Enter your WaveSpeed API key.'); return; }
       if (!openaiKey) { showError('Missing Key', 'Enter your OpenAI API key.'); return; }
 
@@ -885,7 +898,7 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
           store.processedImages = [];
 
           for (const imgData of store.images) {
-            const delayMs = selectedProvider === 'wavespeed' ? 5000 : 1500;
+            const delayMs = selectedProvider === 'wavespeed' ? 5000 : (geminiKeysArr.length > 1 ? 500 : 1500);
             if (completedTotal > 0) await delay(delayMs);
             try {
               let result = null;
@@ -899,7 +912,8 @@ Responde SOLO con el JSON, sin markdown ni texto adicional.`;
                   result = fetched;
                 }
               } else {
-                const res = await callGemini(geminiKey, selectedModel, imgData, PROMPT_REMOVE, ['TEXT', 'IMAGE']);
+                const currentKey = getNextGeminiKey();
+                const res = await callGemini(currentKey, selectedModel, imgData, PROMPT_REMOVE, ['TEXT', 'IMAGE']);
                 result = extractImageFromResponse(res);
                 if (!result) {
                   const errText = extractTextFromResponse(res) || 'No image returned.';
